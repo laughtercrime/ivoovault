@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ivo Vault — Movies</title>
+<style>
+  :root { --accent: #e50914; }
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; }
+  body { background: #0d1117; color: #e6e6e6; }
+
+  nav { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 16px 5%; background: #161b22; position: sticky; top: 0; z-index: 10;
+    box-shadow: 0 2px 10px rgba(0,0,0,.5); flex-wrap: wrap; }
+  .logo { font-size: 1.5rem; font-weight: bold; color: var(--accent); }
+  .logo span { color: #fff; }
+  .nav-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  #search { padding: 10px 16px; border-radius: 25px; border: 1px solid #30363d;
+    background: #0d1117; color: #fff; width: 200px; outline: none; }
+  #search:focus { border-color: var(--accent); }
+  .nav-btn { padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-size: .88rem; color: #fff; }
+  #signInBtn { background: #fff; color: #000; }
+  #logoutBtn { background: #30363d; }
+  #uploadURLBtn { background: #1f6feb; }        /* BLUE: upload from URL */
+  #uploadPCBtn  { background: var(--accent); }  /* RED: upload from PC */
+  #editSiteBtn  { background: #8957e5; }
+  #userEmail { color: #888; font-size: .82rem; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+
+  .hero { min-height: 55vh; display: flex; align-items: flex-end;
+    background: linear-gradient(rgba(13,17,23,.35), rgba(13,17,23,.95)), var(--hero-bg, #161b22) center/cover;
+    padding: 60px 5%; }
+  .hero h1 { font-size: 3rem; margin-bottom: 12px; }
+  .hero p { max-width: 600px; color: #ccc; margin-bottom: 20px; }
+  .btn { display: inline-block; padding: 12px 28px; border: none; border-radius: 6px;
+    background: var(--accent); color: #fff; font-size: 1rem; cursor: pointer; text-decoration: none; }
+
+  .filters { display: none; gap: 10px; flex-wrap: wrap; padding: 30px 5% 10px; }
+  .filters.show { display: flex; }
+  .filters button { padding: 8px 18px; border-radius: 20px; border: 1px solid #30363d;
+    background: transparent; color: #ccc; cursor: pointer; }
+  .filters button.active, .filters button:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .grid { display: grid; gap: 24px; padding: 20px 5% 60px;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+  .card { background: #161b22; border-radius: 10px; overflow: hidden; cursor: pointer;
+    transition: transform .2s, box-shadow .2s; }
+  .card:hover { transform: translateY(-6px); box-shadow: 0 10px 25px rgba(0,0,0,.6); }
+  .card img { width: 100%; height: 270px; object-fit: cover; }
+  .card-info { padding: 12px; }
+  .card-info h3 { font-size: .95rem; margin-bottom: 6px; }
+  .card-info span { color: #ffb800; font-size: .85rem; }
+  .card-info p { color: #888; font-size: .8rem; margin-top: 4px; }
+  .empty { padding: 80px 5%; text-align: center; color: #555; }
+  .sync-note { text-align:center; color:#666; font-size:.8rem; padding: 10px; }
+
+  /* Modal */
+  .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85);
+    z-index: 100; align-items: center; justify-content: center; padding: 20px; }
+  .modal-bg.open { display: flex; }
+  .modal { background: #161b22; border-radius: 12px; max-width: 800px; width: 100%; max-height: 92vh; overflow-y: auto; }
+  .modal video, .modal iframe { width: 100%; height: 400px; border: none; display: block; background: #000; }
+  .modal-body { padding: 20px; }
+  .modal-body h2 { margin-bottom: 8px; }
+  .modal-body .meta { color: #ffb800; margin-bottom: 12px; }
+  .modal-body p { color: #ccc; line-height: 1.6; margin-bottom: 16px; }
+  .modal-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .close-x { float: right; background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer; }
+
+  .stars { font-size: 1.7rem; cursor: pointer; color: #555; user-select: none; }
+  .stars span.on { color: #ffb800; }
+  .rate-label { color: #888; font-size: .85rem; margin-bottom: 4px; }
+
+  /* Panels */
+  .panel { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 100;
+    align-items: center; justify-content: center; }
+  .panel.open { display: flex; }
+  .panel-box { background: #161b22; padding: 30px; border-radius: 12px; width: 90%; max-width: 480px;
+    max-height: 90vh; overflow-y: auto; }
+  .panel-box h2 { margin-bottom: 16px; }
+  .panel-box input, .panel-box textarea { width: 100%; padding: 10px; margin-bottom: 12px;
+    background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 6px; }
+  .file-label { display: block; margin-bottom: 6px; color: #aaa; font-size: .85rem; }
+  .poster-preview { max-width: 100px; display: none; margin-bottom: 12px; border-radius: 6px; }
+  .color-row { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+  .color-row input[type=color] { width: 50px; height: 40px; padding: 2px; cursor: pointer; }
+
+  footer { text-align: center; padding: 30px; color: #555; border-top: 1px solid #21262d; }
+
+  @media (max-width: 600px) {
+    .hero h1 { font-size: 2rem; }
+    .modal video, .modal iframe { height: 220px; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">Ivo <span>Vault</span></div>
+  <div class="nav-right">
+    <input type="text" id="search" placeholder="Search movies...">
+    <span id="userEmail"></span>
+    <!-- Admin-only buttons: hidden by default -->
+    <button id="uploadURLBtn" class="nav-btn" style="display:none" onclick="openUpload('url')">⬆ Upload from URL</button>
+    <button id="uploadPCBtn"  class="nav-btn" style="display:none" onclick="openUpload('pc')">⬆ Upload from PC</button>
+    <button id="editSiteBtn"  class="nav-btn" style="display:none" onclick="openEditSite()">✏ Edit Website</button>
+    <button id="signInBtn" class="nav-btn" onclick="signIn()">Sign in</button>
+    <button id="logoutBtn" class="nav-btn" style="display:none" onclick="logout()">Sign out</button>
+  </div>
+</nav>
+
+<section class="hero" id="hero">
+  <div>
+    <h1 id="heroTitle">Ivo Vault</h1>
+    <p id="heroDesc">Your movie collection starts here. Sign in to watch and rate movies.</p>
+  </div>
+</section>
+
+<div class="sync-note" id="syncNote">Connecting to shared storage...</div>
+<div class="filters" id="filters"></div>
+<div class="grid" id="grid"></div>
+<div class="empty" id="emptyMsg" style="display:none">
+  <h2>No movies yet</h2><p>Check back soon!</p>
+</div>
+
+<!-- Movie modal -->
+<div class="modal-bg" id="movieModal" onclick="if(event.target===this) closeModal()">
+  <div class="modal">
+    <div id="playerBox"></div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<!-- Upload panel -->
+<div class="panel" id="uploadPanel" onclick="if(event.target===this) closeUpload()">
+  <div class="panel-box">
+    <h2 id="upTitle">Upload Movie</h2>
+    <input type="hidden" id="editIdx" value="">
+    <input type="text" id="mTitle" placeholder="Movie title">
+    <input type="text" id="mYear" placeholder="Year (e.g. 2024)">
+    <input type="text" id="mGenre" placeholder="Genre (e.g. Action)">
+    <input type="text" id="mRating" placeholder="Your rating (e.g. 8.5)">
+    <textarea id="mDesc" rows="3" placeholder="Description"></textarea>
+
+    <!-- URL mode -->
+    <div id="urlFields">
+      <label class="file-label">Poster image URL:</label>
+      <input type="text" id="mPosterURL" placeholder="https://...poster.jpg">
+      <label class="file-label">Video URL (direct .mp4 link) — enables Watch + Download for everyone:</label>
+      <input type="text" id="mVideoURL" placeholder="https://...movie.mp4">
+      <label class="file-label">...or YouTube embed URL (trailer only, no download):</label>
+      <input type="text" id="mTrailer" placeholder="https://www.youtube.com/embed/...">
+    </div>
+
+    <!-- PC mode -->
+    <div id="pcFields" style="display:none">
+      <label class="file-label">Poster image (from your computer):</label>
+      <input type="file" id="mPosterFile" accept="image/*" onchange="previewPoster(this)">
+      <img id="posterPreview" class="poster-preview" alt="Poster preview">
+      <label class="file-label">Movie video file (from your computer):</label>
+      <input type="file" id="mVideoFile" accept="video/*">
+      <p style="color:#888; font-size:.8rem; margin-bottom:12px">
+        Note: PC-uploaded videos play for you right now, but a web page cannot permanently store
+        large files from your computer. For a permanent movie everyone can watch and download,
+        upload the file free to a host (e.g. Cloudinary, Google Drive direct link, or
+        file.io) and use "Upload from URL" instead.</p>
+    </div>
+
+    <button class="btn" style="width:100%" onclick="saveMovie()">Save Movie</button>
+  </div>
+</div>
+
+<!-- Edit website panel -->
+<div class="panel" id="sitePanel" onclick="if(event.target===this) closeEditSite()">
+  <div class="panel-box">
+    <h2>Edit Website</h2>
+    <label class="file-label">Hero title:</label>
+    <input type="text" id="sTitle">
+    <label class="file-label">Hero description:</label>
+    <textarea id="sDesc" rows="2"></textarea>
+    <label class="file-label">Hero background image URL:</label>
+    <input type="text" id="sBg">
+    <label class="file-label">Accent color (buttons, logo):</label>
+    <div class="color-row"><input type="color" id="sAccent" value="#e50914"><span id="sAccentVal">#e50914</span></div>
+    <label class="file-label">Site name (logo text):</label>
+    <input type="text" id="sLogo" placeholder="Ivo Vault">
+    <label class="file-label">Footer text:</label>
+    <input type="text" id="sFooter" placeholder="© 2026 Ivo Vault. All rights reserved.">
+    <button class="btn" style="width:100%" onclick="saveSite()">Save Website</button>
+  </div>
+</div>
+
+<footer id="footerText">© 2026 Ivo Vault. All rights reserved.</footer>
+
+<script>
+// =====================================================================
+// SHARED STORAGE SETUP (one-time, 2 minutes, free, no account needed)
+// 1. After publishing your site, sign in as admin and the site will
+//    create a storage blob automatically and show you a Storage ID.
+// 2. Copy that Storage ID into the STORAGE_ID line below and re-upload
+//    your index.html. Now ALL visitors share the same movies/ratings.
+// =====================================================================
+const STORAGE_ID = ""; //1050826316385-qjr26jgp8g69b19e035epqe7fhq9bolf.apps.googleusercontent.com"
+const ADMIN_EMAIL = "mugaruraivanew@gmail.com";
+
+let isAdmin = false;
+let currentUser = null;
+let movies = [];
+let site = {};
+let cloudId = STORAGE_ID || localStorage.getItem("ivovault_cloudId") || "";
+
+// ===== SIGN IN (simple email method, any real Gmail) =====
+function signIn() {
+  const email = prompt("Sign in\nEnter your Gmail address:");
+  if (!email) return;
+  const e = email.trim().toLowerCase();
+  if (!/^[a-z0-9._%+-]+@gmail\.com$/.test(e)) {
+    alert("Please enter a valid Gmail address (e.g. name@gmail.com).");
+    return;
+  }
+  currentUser = e;
+  localStorage.setItem("ivovault_user", e);
+  if (e === ADMIN_EMAIL) {
+    isAdmin = true;
+    localStorage.setItem("ivovault_admin", e);
+    alert("Welcome, Admin! Upload & Edit buttons unlocked.");
+  } else {
+    isAdmin = false;
+    localStorage.removeItem("ivovault_admin");
+    alert("Welcome, " + e + "! You can watch and rate movies.");
+  }
+  applyAuthUI();
+}
+function logout() {
+  currentUser = null; isAdmin = false;
+  localStorage.removeItem("ivovault_user");
+  localStorage.removeItem("ivovault_admin");
+  applyAuthUI();
+}
+function applyAuthUI() {
+  document.getElementById("signInBtn").style.display = currentUser ? "none" : "inline-block";
+  document.getElementById("logoutBtn").style.display = currentUser ? "inline-block" : "none";
+  document.getElementById("userEmail").textContent = currentUser || "";
+  document.getElementById("uploadURLBtn").style.display = isAdmin ? "inline-block" : "none";
+  document.getElementById("uploadPCBtn").style.display  = isAdmin ? "inline-block" : "none";
+  document.getElementById("editSiteBtn").style.display  = isAdmin ? "inline-block" : "none";
+  render();
+}
+if (localStorage.getItem("ivovault_user")) currentUser = localStorage.getItem("ivovault_user");
+if (localStorage.getItem("ivovault_admin") === ADMIN_EMAIL) isAdmin = true;
+
+// ===== SHARED CLOUD STORAGE (jsonblob.com — free public JSON storage) =====
+async function cloudLoad() {
+  if (!cloudId) { document.getElementById("syncNote").textContent = ""; return; }
+  try {
+    const res = await fetch("https://jsonblob.com/api/jsonBlob/" + cloudId);
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    movies = data.movies || [];
+    site = data.site || {};
+    document.getElementById("syncNote").textContent = "";
+    applySite(site, false);
+    render();
+  } catch {
+    document.getElementById("syncNote").textContent = "⚠ Shared storage ID is invalid or expired.";
+  }
+}
+async function cloudSave() {
+  // localStorage backup so the site still works offline
+  localStorage.setItem("ivovault_movies", JSON.stringify(movies));
+  localStorage.setItem("ivovault_site", JSON.stringify(site));
+
+  const body = JSON.stringify({ movies, site });
+  try {
+    if (cloudId) {
+      const res = await fetch("https://jsonblob.com/api/jsonBlob/" + cloudId, {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body });
+      if (!res.ok) throw new Error();
+    } else {
+      const res = await fetch("https://jsonblob.com/api/jsonBlob", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body });
+      const loc = res.headers.get("Location"); // e.g. .../jsonBlob/9c1f2e3b-...
+      if (loc) {
+        cloudId = loc.split("/").pop();
+        localStorage.setItem("ivovault_cloudId", cloudId);
+        if (isAdmin) prompt(
+          "ONE-TIME SETUP: copy this Storage ID, paste it into STORAGE_ID at the top of the code, and re-upload your index.html. Then everyone will see your uploads:",
+          cloudId);
+      }
+    }
+  } catch {
+    alert("Could not reach shared storage. Changes saved locally on this device only.");
+  }
+}
+// fallback to local data if no cloud yet
+if (!cloudId) {
+  const m = localStorage.getItem("ivovault_movies"); if (m) movies = JSON.parse(m);
+  const s = localStorage.getItem("ivovault_site"); if (s) site = JSON.parse(s);
+}
+
+// ===== MOVIE MODAL: play + download + rate =====
+function openMovie(m) {
+  const box = document.getElementById("playerBox");
+  if (m.videoURL) box.innerHTML = `<video src="${m.videoURL}" controls autoplay></video>`;
+  else if (m.trailer) box.innerHTML = `<iframe src="${m.trailer}" title="Trailer" allowfullscreen></iframe>`;
+  else box.innerHTML = "";
+
+  const avg = getAvgRating(m);
+  const myRating = currentUser && m.ratings ? m.ratings[currentUser] : null;
+  document.getElementById("modalBody").innerHTML = `
+    <button class="close-x" onclick="closeModal()">✕</button>
+    <h2>${esc(m.title)}</h2>
+    <div class="meta">★ ${m.rating} &nbsp;•&nbsp; ${esc(m.genre)} &nbsp;•&nbsp; ${m.year}
+      &nbsp;•&nbsp; <span id="avgRate">User rating: ${avg ? avg.toFixed(1) + " (" + Object.keys(m.ratings||{}).length + " votes)" : "No ratings yet"}</span></div>
+    <p>${esc(m.desc || "No description available.")}</p>
+
+    ${currentUser ? `
+      <div class="rate-label">Rate this movie (click a star):</div>
+      <div class="stars" id="starRow">
+        ${[1,2,3,4,5].map(n => `<span data-n="${n}" class="${myRating && myRating>=n ? "on" : ""}"
+           onmouseover="hoverStars(${n})" onmouseout="resetStars()" onclick="rateMovie(${n})">★</span>`).join("")}
+      </div><br>` : `<p style="color:#888; font-size:.85rem">Sign in to rate this movie.</p>`}
+
+    <div class="modal-actions">
+      ${m.videoURL ? `<a class="btn" href="${m.videoURL}" download="${esc(m.title)}.mp4" target="_blank" rel="noopener">⬇ Download</a>` : ""}
+      ${isAdmin ? `<button class="btn" style="background:#1f6feb" onclick="editMovie(movies.indexOf(currentModalMovie))">✏ Edit</button>
+                   <button class="btn" style="background:#30363d" onclick="deleteMovie(currentModalMovie.title)">🗑 Delete</button>` : ""}
+    </div>`;
+  window.currentModalMovie = m;
+  document.getElementById("movieModal").classList.add("open");
+}
+function closeModal() {
+  document.getElementById("movieModal").classList.remove("open");
+  document.getElementById("playerBox").innerHTML = "";
+}
+
+// ===== RATINGS (stored in shared cloud — everyone's votes count) =====
+function getAvgRating(m) {
+  if (!m.ratings) return null;
+  const vals = Object.values(m.ratings);
+  return vals.reduce((a,b)=>a+b,0) / vals.length;
+}
+async function rateMovie(stars) {
+  if (!currentUser) return;
+  const m = window.currentModalMovie;
+  if (!m.ratings) m.ratings = {};
+  m.ratings[currentUser] = stars;
+  await cloudSave();
+  const avg = getAvgRating(m);
+  document.getElementById("avgRate").textContent =
+    "User rating: " + avg.toFixed(1) + " (" + Object.keys(m.ratings).length + " votes)";
+  hoverStars(stars); render();
+}
+function hoverStars(n) {
+  document.querySelectorAll("#starRow span").forEach(s => s.classList.toggle("on", +s.dataset.n <= n));
+}
+function resetStars() {
+  const m = window.currentModalMovie;
+  hoverStars((currentUser && m.ratings && m.ratings[currentUser]) || 0);
+}
+
+// ===== UPLOAD (URL & PC modes) =====
+let posterData = null, videoObjectURL = null;
+function openUpload(mode) {
+  if (!isAdmin) return;
+  document.getElementById("upTitle").textContent = mode === "pc" ? "Upload Movie (from PC)" : "Upload Movie (from URL)";
+  document.getElementById("urlFields").style.display = mode === "url" ? "block" : "none";
+  document.getElementById("pcFields").style.display  = mode === "pc"  ? "block" : "none";
+  document.getElementById("editIdx").value = "";
+  ["mTitle","mYear","mGenre","mRating","mPosterURL","mVideoURL","mTrailer","mDesc"]
+    .forEach(id => document.getElementById(id).value = "");
+  document.getElementById("mPosterFile").value = "";
+  document.getElementById("mVideoFile").value = "";
+  posterData = null; videoObjectURL = null;
+  document.getElementById("posterPreview").style.display = "none";
+  document.getElementById("uploadPanel").classList.add("open");
+}
+function previewPoster(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    posterData = e.target.result;
+    const pv = document.getElementById("posterPreview");
+    pv.src = posterData; pv.style.display = "block";
+  };
+  reader.readAsDataURL(file);
+}
+function editMovie(i) {
+  if (!isAdmin || i < 0) return;
+  const m = movies[i];
+  openUpload("url");
+  document.getElementById("upTitle").textContent = "Edit Movie";
+  document.getElementById("editIdx").value = i;
+  mTitle.value = m.title; mYear.value = m.year; mGenre.value = m.genre;
+  mRating.value = m.rating; mDesc.value = m.desc || "";
+  mVideoURL.value = m.videoURL || ""; mTrailer.value = m.trailer || "";
+  mPosterURL.value = m.img.startsWith("data:") ? "" : m.img;
+  posterData = m.img.startsWith("data:") ? m.img : null;
+  const pv = document.getElementById("posterPreview");
+  pv.src = m.img; pv.style.display = posterData ? "block" : "none";
+  videoObjectURL = m.videoURL || null;
+  closeModal();
+}
+async function saveMovie() {
+  const videoFile = document.getElementById("mVideoFile").files[0];
+  if (videoFile) videoObjectURL = URL.createObjectURL(videoFile);
+
+  const m = {
+    title: mTitle.value.trim() || "Untitled",
+    year: mYear.value || "N/A",
+    genre: mGenre.value || "Other",
+    rating: mRating.value || "?",
+    img: posterData || mPosterURL.value.trim() || "https://via.placeholder.com/300x450?text=No+Poster",
+    videoURL: videoObjectURL || mVideoURL.value.trim() || "",
+    trailer: mTrailer.value.trim(),
+    desc: mDesc.value.trim(),
+    ratings: {}
+  };
+  const idx = document.getElementById("editIdx").value;
+  if (idx === "") movies.push(m);
+  else { m.ratings = movies[parseInt(idx)].ratings || {}; movies[parseInt(idx)] = m; }
+  await cloudSave(); closeUpload(); render();
+}
+async function deleteMovie(title) {
+  if (!confirm("Delete '" + title + "'?")) return;
+  movies = movies.filter(m => m.title !== title);
+  await cloudSave(); closeModal(); render();
+}
+function closeUpload() { document.getElementById("uploadPanel").classList.remove("open"); }
+
+// ===== EDIT WEBSITE (colors, format, texts) =====
+function openEditSite() {
+  if (!isAdmin) return;
+  sTitle.value = site.title || "Ivo Vault";
+  sDesc.value  = site.desc || document.getElementById("heroDesc").textContent;
+  sBg.value    = site.bg || "";
+  sAccent.value = site.accent || "#e50914";
+  sAccentVal.textContent = sAccent.value;
+  sLogo.value  = site.logo || "Ivo Vault";
+  sFooter.value = site.footer || "© 2026 Ivo Vault. All rights reserved.";
+  document.getElementById("sitePanel").classList.add("open");
+}
+document.getElementById("sAccent").addEventListener("input", e => sAccentVal.textContent = e.target.value);
+function applySite(s) {
+  if (s.title) document.getElementById("heroTitle").textContent = s.title;
+  if (s.desc)  document.getElementById("heroDesc").textContent = s.desc;
+  if (s.bg)    document.getElementById("hero").style.setProperty("--hero-bg", `url('${s.bg}')`);
+  if (s.accent) document.documentElement.style.setProperty("--accent", s.accent);
+  if (s.logo)  document.querySelector(".logo").innerHTML = esc(s.logo).replace(/ (\S+)$/, " <span>$1</span>");
+  if (s.footer) document.getElementById("footerText").textContent = s.footer;
+}
+async function saveSite() {
+  site = { title: sTitle.value, desc: sDesc.value, bg: sBg.value.trim(),
+           accent: sAccent.value, logo: sLogo.value, footer: sFooter.value };
+  applySite(site);
+  await cloudSave(); closeEditSite();
+}
+function closeEditSite() { document.getElementById("sitePanel").classList.remove("open"); }
+
+// ===== RENDER =====
+let activeGenre = "All";
+const filtersEl = document.getElementById("filters");
+const gridEl = document.getElementById("grid");
+const searchEl = document.getElementById("search");
+
+function buildFilters() {
+  filtersEl.innerHTML = "";
+  const gs = [...new Set(movies.map(m => m.genre))];
+  if (gs.length === 0) { filtersEl.classList.remove("show"); return; }
+  filtersEl.classList.add("show");
+  ["All", ...gs].forEach(g => {
+    const b = document.createElement("button");
+    b.textContent = g;
+    if (g === activeGenre) b.classList.add("active");
+    b.onclick = () => { activeGenre = g; buildFilters(); render(); };
+    filtersEl.appendChild(b);
+  });
+}
+function render() {
+  if (movies.length === 0) {
+    gridEl.innerHTML = "";
+    document.getElementById("emptyMsg").style.display = "block";
+    buildFilters(); return;
+  }
+  document.getElementById("emptyMsg").style.display = "none";
+  buildFilters();
+  const q = searchEl.value.toLowerCase();
+  const list = movies.filter(m =>
+    (activeGenre === "All" || m.genre === activeGenre) &&
+    m.title.toLowerCase().includes(q)
+  );
+  gridEl.innerHTML = list.map((m) => {
+    const idx = movies.indexOf(m);
+    const avg = getAvgRating(m);
+    return `<div class="card" onclick="openMovie(movies[${idx}])">
+      <img src="${m.img}" alt="${esc(m.title)}" loading="lazy">
+      <div class="card-info">
+        <h3>${esc(m.title)}</h3>
+        <span>★ ${m.rating}${avg ? ` &nbsp;| Users: ${avg.toFixed(1)}★` : ""}</span>
+        <p>${esc(m.genre)} • ${m.year}</p>
+      </div>
+    </div>`;
+  }).join("") || "<p>No movies found.</p>";
+}
+function esc(t) { const d = document.createElement("div"); d.textContent = t; return d.innerHTML; }
+
+searchEl.addEventListener("input", render);
+applyAuthUI(); render();
+cloudLoad();
+</script>
+</body>
+</html>
